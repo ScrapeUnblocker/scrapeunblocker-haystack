@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scrapeunblocker-haystack"
+dynamic = ["version"]
+description = "Haystack integration for ScrapeUnblocker - scrape pages behind anti-bot protections"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+keywords = ["haystack", "scraping", "web-scraping", "anti-bot", "rag", "llm"]
+authors = [{ name = "ScrapeUnblocker", email = "info@scrapeunblocker.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = ["haystack-ai>=2.0.0", "requests>=2.31.0"]
+
+[project.urls]
+Homepage = "https://www.scrapeunblocker.com"
+Documentation = "https://developers.scrapeunblocker.com"
+Source = "https://github.com/ScrapeUnblocker/scrapeunblocker-haystack"
+Issues = "https://github.com/ScrapeUnblocker/scrapeunblocker-haystack/issues"
+
+[tool.hatch.version]
+path = "src/scrapeunblocker_haystack/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scrapeunblocker_haystack"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
