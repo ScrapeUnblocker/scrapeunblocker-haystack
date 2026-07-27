@@ -1,7 +1,7 @@
 # scrapeunblocker-haystack
 
 [Haystack](https://haystack.deepset.ai/) integration for
-[ScrapeUnblocker](https://www.scrapeunblocker.com) - fetch pages that block
+[ScrapeUnblocker](https://www.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration) - fetch pages that block
 ordinary HTTP requests.
 
 ScrapeUnblocker renders web pages in a real browser behind anti-bot protections
@@ -16,7 +16,7 @@ pip install scrapeunblocker-haystack
 
 ## Setup
 
-Get an API key at [scrapeunblocker.com](https://www.scrapeunblocker.com) and
+Get an API key at [scrapeunblocker.com](https://www.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration) and
 export it:
 
 ```bash
@@ -123,8 +123,8 @@ reference, not as its value.
 
 ## Links
 
-- ScrapeUnblocker: https://www.scrapeunblocker.com
-- API documentation: https://developers.scrapeunblocker.com
+- ScrapeUnblocker: [www.scrapeunblocker.com](https://www.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration)
+- API documentation: [developers.scrapeunblocker.com](https://developers.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration)
 - Haystack: https://haystack.deepset.ai
 
 ## License
