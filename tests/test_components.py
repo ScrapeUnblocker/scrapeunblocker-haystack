@@ -7,16 +7,23 @@ import pytest
 from haystack import Document
 from haystack.utils import Secret
 
-from scrapeunblocker_haystack import ScrapeUnblockerFetcher, ScrapeUnblockerWebSearch
+from scrapeunblocker_haystack import (
+    ScrapeUnblockerFetcher,
+    ScrapeUnblockerWebSearch,
+    StepExecutionError,
+)
 
 API_KEY = Secret.from_token("test_key")
 # Haystack refuses to serialize token secrets, so to_dict tests use an env-var secret.
 ENV_KEY = Secret.from_env_var("SCRAPEUNBLOCKER_API_KEY")
 
 
-def _response(text: str = "<html><title>Test</title></html>", json_data=None) -> MagicMock:
+def _response(
+    text: str = "<html><title>Test</title></html>", json_data=None, status_code: int = 200
+) -> MagicMock:
     response = MagicMock()
     response.text = text
+    response.status_code = status_code
     response.headers = {"Content-Type": "text/html"}
     response.raise_for_status.return_value = None
     if json_data is not None:
@@ -100,6 +107,100 @@ class TestFetcher:
 
         with pytest.raises(Exception, match="boom"):
             fetcher.run(urls=["https://broken.com"])
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_steps_are_json_encoded(self, mock_post):
+        mock_post.return_value = _response()
+        steps = [
+            {"action": "wait_for", "selector": "#results"},
+            {"action": "click", "selector": "button.load-more"},
+        ]
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, steps=steps)
+
+        fetcher.run(urls=["https://example.com"])
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"]["steps"] == json.dumps(steps)
+        assert json.loads(kwargs["params"]["steps"]) == steps
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_list_elements_returns_json(self, mock_post):
+        payload = {
+            "url": "https://example.com",
+            "count": 2,
+            "elements": [{"tag": "a"}, {"tag": "div"}],
+        }
+        mock_post.return_value = _response(json_data=payload)
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, list_elements=True)
+
+        result = fetcher.run(urls=["https://example.com"])
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"]["list_elements"] is True
+        doc = result["documents"][0]
+        assert json.loads(doc.content) == payload
+        assert doc.meta["count"] == 2
+        assert doc.meta["list_elements"] is True
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_step_failure_is_skipped_by_default(self, mock_post):
+        mock_post.return_value = _response(
+            json_data={
+                "error": "step_failed",
+                "step_index": 1,
+                "action": "click",
+                "reason": "selector not found",
+                "selector": "button.load-more",
+            },
+            status_code=422,
+        )
+        fetcher = ScrapeUnblockerFetcher(
+            api_key=API_KEY, steps=[{"action": "click", "selector": "button.load-more"}]
+        )
+
+        result = fetcher.run(urls=["https://example.com"])
+
+        assert result["documents"] == []
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_step_failure_raises_when_requested(self, mock_post):
+        mock_post.return_value = _response(
+            json_data={
+                "error": "step_failed",
+                "step_index": 1,
+                "action": "click",
+                "reason": "selector not found",
+                "selector": "button.load-more",
+            },
+            status_code=422,
+        )
+        fetcher = ScrapeUnblockerFetcher(
+            api_key=API_KEY,
+            steps=[{"action": "click", "selector": "button.load-more"}],
+            raise_on_failure=True,
+        )
+
+        with pytest.raises(StepExecutionError) as exc_info:
+            fetcher.run(urls=["https://example.com"])
+
+        error = exc_info.value
+        assert error.step_index == 1
+        assert error.action == "click"
+        assert error.selector == "button.load-more"
+        assert error.reason == "selector not found"
+
+    def test_to_dict_includes_steps_and_list_elements(self):
+        steps = [{"action": "wait_for", "selector": "#results"}]
+        fetcher = ScrapeUnblockerFetcher(
+            api_key=ENV_KEY, steps=steps, list_elements=True
+        )
+        data = fetcher.to_dict()
+        assert data["init_parameters"]["steps"] == steps
+        assert data["init_parameters"]["list_elements"] is True
+
+        restored = ScrapeUnblockerFetcher.from_dict(data)
+        assert restored.steps == steps
+        assert restored.list_elements is True
 
 
 class TestWebSearch:
