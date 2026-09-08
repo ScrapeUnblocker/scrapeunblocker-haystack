@@ -181,7 +181,7 @@ reference, not as its value.
 ## Links
 
 - ScrapeUnblocker: [www.scrapeunblocker.com](https://www.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration)
-- API documentation: [developers.scrapeunblocker.com](https://developers.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration)
+- API documentation: [docs.scrapeunblocker.com](https://docs.scrapeunblocker.com?utm_source=haystack&utm_medium=integration&utm_campaign=haystack-integration)
 - Haystack: https://haystack.deepset.ai
 
 ## License

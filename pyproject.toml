@@ -25,7 +25,7 @@ dependencies = ["haystack-ai>=2.0.0", "requests>=2.31.0"]
 
 [project.urls]
 Homepage = "https://www.scrapeunblocker.com"
-Documentation = "https://developers.scrapeunblocker.com"
+Documentation = "https://docs.scrapeunblocker.com"
 Source = "https://github.com/ScrapeUnblocker/scrapeunblocker-haystack"
 Issues = "https://github.com/ScrapeUnblocker/scrapeunblocker-haystack/issues"
 
