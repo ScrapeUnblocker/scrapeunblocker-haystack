@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- With `parsed_data=True`, a page that loads but holds no structured data
+  (the API answers HTTP 422 `no_data_extracted`, not billed, no HTML) no longer
+  shows up as a generic request failure. The fetcher skips it with a clear
+  warning, or raises the new `NoDataExtractedError` when
+  `raise_on_failure=True`. Fetch without `parsed_data` to get the HTML.
+
 ## 0.2.1
 
 - A URL whose page does not exist (the site answers HTTP 404 or 410) no longer

@@ -95,6 +95,13 @@ Steps are **non-idempotent**. If a step fails, the fetch raises
 which is logged and skipped by default, or re-raised when
 `raise_on_failure=True`.
 
+#### Pages with nothing to parse
+
+With `parsed_data=True`, a page that loads but holds no structured data yields
+no Document: it is skipped with a warning, or `NoDataExtractedError` is raised
+when `raise_on_failure=True`. The call is not billed; fetch the URL without
+`parsed_data` to get the HTML.
+
 #### Pages that do not exist
 
 If the site answers HTTP 404 or 410, there is no page to index: the URL is

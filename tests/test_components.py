@@ -10,6 +10,7 @@ from haystack.utils import Secret
 from scrapeunblocker_haystack import (
     ScrapeUnblockerFetcher,
     ScrapeUnblockerWebSearch,
+    NoDataExtractedError,
     StepExecutionError,
     TargetNotFoundError,
 )
@@ -297,3 +298,44 @@ class TestTargetNotFound:
         fetcher = ScrapeUnblockerFetcher(api_key=API_KEY)
 
         assert len(fetcher.run(urls=["https://example.com"])["documents"]) == 1
+
+
+class TestNoDataExtracted:
+    BODY = {
+        "error": "no_data_extracted",
+        "detail": "The page was rendered, but no structured data could be extracted from it.",
+    }
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_empty_parse_is_skipped(self, mock_post):
+        mock_post.side_effect = [
+            _response(status_code=422, json_data=self.BODY),
+            _response(json_data={"data": {"page_type": "product"}}),
+        ]
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, parsed_data=True)
+
+        result = fetcher.run(urls=["https://example.com/empty", "https://example.com"])
+
+        assert [d.meta["url"] for d in result["documents"]] == ["https://example.com"]
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_empty_parse_raises_when_asked(self, mock_post):
+        mock_post.return_value = _response(status_code=422, json_data=self.BODY)
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, parsed_data=True, raise_on_failure=True)
+
+        with pytest.raises(NoDataExtractedError) as exc:
+            fetcher.run(urls=["https://example.com/empty"])
+        assert exc.value.url == "https://example.com/empty"
+        assert "not billed" in str(exc.value)
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_dead_url_with_parsed_body_is_skipped(self, mock_post):
+        response = _response(
+            status_code=404, json_data={"data": {"page_type": "not_found", "data": {}}}
+        )
+        response.text = '{"data":{"page_type":"not_found","data":{}}}'
+        response.headers = {"Content-Type": "application/json", "X-Origin-Status": "404"}
+        mock_post.return_value = response
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, parsed_data=True)
+
+        assert fetcher.run(urls=["https://example.com/gone"])["documents"] == []

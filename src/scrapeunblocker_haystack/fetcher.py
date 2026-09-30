@@ -35,6 +35,23 @@ class TargetNotFoundError(Exception):
         )
 
 
+class NoDataExtractedError(Exception):
+    """Raised when ``parsed_data`` found no structured data on the page.
+
+    The API answers this as HTTP 422 ``no_data_extracted``: the page loaded but
+    held nothing to extract. It is not billed and carries no HTML; fetch the
+    URL without ``parsed_data`` to get the page itself.
+    """
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+        super().__init__(
+            f"No structured data could be extracted from {url}: the page loaded, but "
+            "nothing on it matched a structured shape. The call was not billed; fetch "
+            "it without parsed_data to get the HTML."
+        )
+
+
 def _target_gone_status(response: requests.Response) -> Optional[int]:
     """The target's own 404/410 answer, or None.
 
@@ -138,7 +155,8 @@ class ScrapeUnblockerFetcher:
         :param base_url: API base URL. Override to target a different environment.
         :param timeout: HTTP timeout in seconds.
         :param raise_on_failure: Raise instead of skipping when a URL cannot be fetched
-            (including when a browser step fails or the page does not exist).
+            (including when a browser step fails, the page does not exist, or
+            `parsed_data` finds nothing to extract).
         """
         self.api_key = api_key
         self.parsed_data = parsed_data
@@ -195,14 +213,25 @@ class ScrapeUnblockerFetcher:
         if gone is not None:
             raise TargetNotFoundError(url, gone, response.text)
 
-        # A failed browser step returns 422 with a structured JSON error.
+        # A failed browser step returns 422 with a structured JSON error; so does
+        # a parsed_data call that found nothing to extract.
         if response.status_code == 422:
+            if self._is_no_data_extracted(response):
+                raise NoDataExtractedError(url)
             error = self._parse_step_error(response)
             if error is not None:
                 raise error
 
         response.raise_for_status()
         return response
+
+    @staticmethod
+    def _is_no_data_extracted(response: requests.Response) -> bool:
+        try:
+            payload = response.json()
+        except ValueError:
+            return False
+        return isinstance(payload, dict) and payload.get("error") == "no_data_extracted"
 
     @staticmethod
     def _parse_step_error(response: requests.Response) -> Optional[StepExecutionError]:
@@ -225,7 +254,9 @@ class ScrapeUnblockerFetcher:
         Fetch each URL and return one Document per successfully fetched page.
 
         A URL whose page does not exist (the site answers 404/410) yields no
-        Document; with `raise_on_failure` it raises `TargetNotFoundError`.
+        Document; with `raise_on_failure` it raises `TargetNotFoundError`. With
+        `parsed_data`, a page holding no structured data yields no Document
+        either, or raises `NoDataExtractedError`.
 
         :param urls: URLs to fetch.
         :returns: A dictionary with a `documents` key holding the fetched pages.
@@ -237,10 +268,10 @@ class ScrapeUnblockerFetcher:
         for url in urls:
             try:
                 response = self._fetch(url)
-            except TargetNotFoundError as exc:
+            except (TargetNotFoundError, NoDataExtractedError) as exc:
                 if self.raise_on_failure:
                     raise
-                # A page that does not exist has no content to index.
+                # A page that does not exist, or has nothing to parse, has no content to index.
                 logger.warning("ScrapeUnblocker skipped {url}: {error}", url=url, error=str(exc))
                 continue
             except Exception as exc:
