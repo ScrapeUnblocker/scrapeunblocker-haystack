@@ -95,6 +95,14 @@ Steps are **non-idempotent**. If a step fails, the fetch raises
 which is logged and skipped by default, or re-raised when
 `raise_on_failure=True`.
 
+#### Pages that do not exist
+
+If the site answers HTTP 404 or 410, there is no page to index: the URL is
+skipped with a warning, or `TargetNotFoundError` (with `url`, `origin_status`
+and the site's own `body`) is raised when `raise_on_failure=True`. That is the
+site's answer, not a block - the call is billed and a retry returns the same
+result.
+
 #### List elements
 
 Set `list_elements=True` to return the parsed elements JSON

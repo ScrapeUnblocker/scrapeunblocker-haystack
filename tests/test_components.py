@@ -11,6 +11,7 @@ from scrapeunblocker_haystack import (
     ScrapeUnblockerFetcher,
     ScrapeUnblockerWebSearch,
     StepExecutionError,
+    TargetNotFoundError,
 )
 
 API_KEY = Secret.from_token("test_key")
@@ -249,3 +250,50 @@ class TestWebSearch:
         restored = ScrapeUnblockerWebSearch.from_dict(data)
         assert restored.top_k == 5
         assert restored.proxy_country == "us"
+
+
+class TestTargetNotFound:
+    NOT_FOUND = "<html><title>404 Not Found</title></html>"
+
+    def _gone(self, status_code: int, origin: str) -> MagicMock:
+        response = _response(text=self.NOT_FOUND, status_code=status_code)
+        response.headers = {"Content-Type": "text/html", "X-Origin-Status": origin}
+        return response
+
+    @pytest.mark.parametrize("status", [404, 410])
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_missing_page_is_skipped(self, mock_post, status):
+        mock_post.side_effect = [self._gone(status, str(status)), _response()]
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY)
+
+        result = fetcher.run(urls=["https://example.com/gone", "https://example.com"])
+
+        assert [d.meta["url"] for d in result["documents"]] == ["https://example.com"]
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_legacy_200_with_origin_404_is_skipped(self, mock_post):
+        mock_post.return_value = self._gone(200, "404")
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY)
+
+        assert fetcher.run(urls=["https://example.com/gone"])["documents"] == []
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_missing_page_raises_when_asked(self, mock_post):
+        mock_post.return_value = self._gone(410, "410")
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, raise_on_failure=True)
+
+        with pytest.raises(TargetNotFoundError) as exc:
+            fetcher.run(urls=["https://example.com/gone"])
+        assert exc.value.origin_status == 410
+        assert exc.value.url == "https://example.com/gone"
+        assert "404 Not Found" in exc.value.body
+        assert "billed" in str(exc.value)
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_dead_origin_5xx_page_is_still_a_document(self, mock_post):
+        response = _response(text="<html>502 Bad Gateway</html>")
+        response.headers = {"Content-Type": "text/html", "X-Origin-Status": "502"}
+        mock_post.return_value = response
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY)
+
+        assert len(fetcher.run(urls=["https://example.com"])["documents"]) == 1

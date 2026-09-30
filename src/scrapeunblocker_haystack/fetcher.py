@@ -13,6 +13,42 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.scrapeunblocker.com"
 DEFAULT_TIMEOUT = 180
+_TARGET_GONE = frozenset({404, 410})
+
+
+class TargetNotFoundError(Exception):
+    """Raised when the target page does not exist (the site answered 404/410).
+
+    This is the website's own answer, not a block or an API failure: the call
+    is billed, and retrying returns the same result. ``body`` is the target's
+    own not-found page (can be empty).
+    """
+
+    def __init__(self, url: str, origin_status: int, body: str = "") -> None:
+        self.url = url
+        self.origin_status = origin_status
+        self.body = body
+        super().__init__(
+            f"Target page does not exist: {url} answered HTTP {origin_status}. "
+            "This is the site's own answer, not a block or an API failure; the "
+            "call was billed and retrying returns the same result."
+        )
+
+
+def _target_gone_status(response: requests.Response) -> Optional[int]:
+    """The target's own 404/410 answer, or None.
+
+    ``/getPageSource`` always exists, so a 404/410 from it is the target site's
+    answer, sent with ``X-Origin-Status``. Older API versions returned that
+    same answer as a 200 carrying the header, so the header is checked first.
+    """
+    try:
+        origin = int(response.headers.get("X-Origin-Status", ""))
+    except (TypeError, ValueError):
+        origin = None
+    if origin in _TARGET_GONE:
+        return origin
+    return response.status_code if response.status_code in _TARGET_GONE else None
 
 
 class StepExecutionError(Exception):
@@ -102,7 +138,7 @@ class ScrapeUnblockerFetcher:
         :param base_url: API base URL. Override to target a different environment.
         :param timeout: HTTP timeout in seconds.
         :param raise_on_failure: Raise instead of skipping when a URL cannot be fetched
-            (including when a browser step fails).
+            (including when a browser step fails or the page does not exist).
         """
         self.api_key = api_key
         self.parsed_data = parsed_data
@@ -155,6 +191,10 @@ class ScrapeUnblockerFetcher:
             timeout=self.timeout,
         )
 
+        gone = _target_gone_status(response)
+        if gone is not None:
+            raise TargetNotFoundError(url, gone, response.text)
+
         # A failed browser step returns 422 with a structured JSON error.
         if response.status_code == 422:
             error = self._parse_step_error(response)
@@ -184,6 +224,9 @@ class ScrapeUnblockerFetcher:
         """
         Fetch each URL and return one Document per successfully fetched page.
 
+        A URL whose page does not exist (the site answers 404/410) yields no
+        Document; with `raise_on_failure` it raises `TargetNotFoundError`.
+
         :param urls: URLs to fetch.
         :returns: A dictionary with a `documents` key holding the fetched pages.
         """
@@ -194,6 +237,12 @@ class ScrapeUnblockerFetcher:
         for url in urls:
             try:
                 response = self._fetch(url)
+            except TargetNotFoundError as exc:
+                if self.raise_on_failure:
+                    raise
+                # A page that does not exist has no content to index.
+                logger.warning("ScrapeUnblocker skipped {url}: {error}", url=url, error=str(exc))
+                continue
             except Exception as exc:
                 if self.raise_on_failure:
                     raise

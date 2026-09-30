@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- A URL whose page does not exist (the site answers HTTP 404 or 410) no longer
+  shows up as a generic request failure, and an older API response that carried
+  the not-found page as a 200 no longer becomes a Document. The fetcher skips it
+  with a clear warning, or raises the new `TargetNotFoundError` (`url`,
+  `origin_status`, `body`) when `raise_on_failure=True`. The call is billed by
+  ScrapeUnblocker and retrying returns the same answer.
+
 ## 0.2.0
 
 - `ScrapeUnblockerFetcher` now supports **browser steps** via the `steps`
