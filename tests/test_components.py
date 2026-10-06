@@ -302,31 +302,37 @@ class TestTargetNotFound:
 
 class TestNoDataExtracted:
     BODY = {
-        "error": "no_data_extracted",
+        "data": {"page_type": "unknown", "data": {}},
+        "data_extracted": False,
         "detail": "The page was rendered, but no structured data could be extracted from it.",
+        "html": "<html><title>Example Domain</title></html>",
     }
 
     @patch("scrapeunblocker_haystack.fetcher.requests.post")
-    def test_empty_parse_is_skipped(self, mock_post):
+    def test_empty_parse_is_a_document_with_the_html(self, mock_post):
         mock_post.side_effect = [
-            _response(status_code=422, json_data=self.BODY),
-            _response(json_data={"data": {"page_type": "product"}}),
+            _response(json_data=self.BODY),
+            _response(json_data={"data": {"page_type": "product", "data": {"title": "x"}}}),
         ]
         fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, parsed_data=True)
 
-        result = fetcher.run(urls=["https://example.com/empty", "https://example.com"])
+        empty, parsed = fetcher.run(urls=["https://example.com/empty", "https://example.com"])[
+            "documents"
+        ]
 
-        assert [d.meta["url"] for d in result["documents"]] == ["https://example.com"]
+        assert empty.meta["data_extracted"] is False
+        assert json.loads(empty.content)["html"] == self.BODY["html"]
+        assert parsed.meta["data_extracted"] is True
 
     @patch("scrapeunblocker_haystack.fetcher.requests.post")
-    def test_empty_parse_raises_when_asked(self, mock_post):
-        mock_post.return_value = _response(status_code=422, json_data=self.BODY)
+    def test_empty_parse_does_not_raise(self, mock_post):
+        mock_post.return_value = _response(json_data=self.BODY)
         fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, parsed_data=True, raise_on_failure=True)
 
-        with pytest.raises(NoDataExtractedError) as exc:
-            fetcher.run(urls=["https://example.com/empty"])
-        assert exc.value.url == "https://example.com/empty"
-        assert "not billed" in str(exc.value)
+        assert len(fetcher.run(urls=["https://example.com/empty"])["documents"]) == 1
+
+    def test_error_class_still_importable(self):
+        assert issubclass(NoDataExtractedError, Exception)
 
     @patch("scrapeunblocker_haystack.fetcher.requests.post")
     def test_dead_url_with_parsed_body_is_skipped(self, mock_post):

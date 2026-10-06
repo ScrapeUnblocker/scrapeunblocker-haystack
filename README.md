@@ -97,10 +97,10 @@ which is logged and skipped by default, or re-raised when
 
 #### Pages with nothing to parse
 
-With `parsed_data=True`, a page that loads but holds no structured data yields
-no Document: it is skipped with a warning, or `NoDataExtractedError` is raised
-when `raise_on_failure=True`. The call is not billed; fetch the URL without
-`parsed_data` to get the HTML.
+With `parsed_data=True`, a page that loads but holds no structured data still
+yields a Document. Its JSON carries `"data_extracted": false` and the rendered
+page in `html`, and `meta["data_extracted"]` is `False`, so you can route it to
+an HTML converter. The call is billed like a plain HTML fetch.
 
 #### Pages that do not exist
 

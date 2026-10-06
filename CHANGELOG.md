@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- With `parsed_data=True`, a page that loads but holds no structured data is
+  now a Document instead of being skipped. The API answers it as HTTP 200 with
+  `data_extracted: false` and the rendered HTML (billed like a plain fetch),
+  replacing the 422 `no_data_extracted` handled in 0.2.2. The Document's JSON
+  carries that HTML, and `meta["data_extracted"]` is `False` (`True` for a
+  successful parse). `NoDataExtractedError` is no longer raised; it stays
+  importable so existing `except` clauses keep working.
+
 ## 0.2.2
 
 - With `parsed_data=True`, a page that loads but holds no structured data
