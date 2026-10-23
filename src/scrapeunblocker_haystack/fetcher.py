@@ -103,6 +103,18 @@ class ScrapeUnblockerFetcher:
     print(result["documents"][0].content[:200])
     ```
 
+    ### Markdown
+
+    Set `markdown=True` to get each page as clean Markdown, ready for an LLM or a
+    RAG pipeline, instead of HTML. By default only the main content is kept;
+    `main_content_only=False` converts the whole page:
+
+    ```python
+    fetcher = ScrapeUnblockerFetcher(markdown=True)
+    result = fetcher.run(urls=["https://example.com"])
+    print(result["documents"][0].content[:200])
+    ```
+
     ### Browser steps
 
     Drive the page in a real browser before the HTML is captured - click, type,
@@ -135,6 +147,8 @@ class ScrapeUnblockerFetcher:
         base_url: str = DEFAULT_BASE_URL,
         timeout: int = DEFAULT_TIMEOUT,
         raise_on_failure: bool = False,
+        markdown: bool = False,
+        main_content_only: bool = True,
     ) -> None:
         """
         :param api_key: ScrapeUnblocker API key. Read from `SCRAPEUNBLOCKER_API_KEY` by default.
@@ -152,7 +166,21 @@ class ScrapeUnblockerFetcher:
         :param timeout: HTTP timeout in seconds.
         :param raise_on_failure: Raise instead of skipping when a URL cannot be fetched
             (including when a browser step fails or the page does not exist).
+        :param markdown: Return each page as clean Markdown instead of HTML: headings,
+            lists, tables, absolute links, images with alt text and code blocks, without
+            scripts, styles, navigation, footers or forms. Billed like an HTML fetch.
+            Cannot be combined with `parsed_data` or `list_elements`.
+        :param main_content_only: With `markdown`, keep only the page's main content and
+            drop navigation, the site header, footer and sidebars. `False` converts the
+            whole page. Ignored without `markdown`.
+        :raises ValueError: If `markdown` is combined with `parsed_data` or `list_elements`.
         """
+        if markdown and (parsed_data or list_elements):
+            # The API refuses these combinations (HTTP 422): each returns its own format.
+            raise ValueError(
+                "markdown=True cannot be combined with parsed_data or list_elements: "
+                "each returns its own format."
+            )
         self.api_key = api_key
         self.parsed_data = parsed_data
         self.proxy_country = proxy_country
@@ -162,6 +190,8 @@ class ScrapeUnblockerFetcher:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.raise_on_failure = raise_on_failure
+        self.markdown = markdown
+        self.main_content_only = main_content_only
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize this component to a dictionary."""
@@ -176,6 +206,8 @@ class ScrapeUnblockerFetcher:
             base_url=self.base_url,
             timeout=self.timeout,
             raise_on_failure=self.raise_on_failure,
+            markdown=self.markdown,
+            main_content_only=self.main_content_only,
         )
 
     @classmethod
@@ -196,6 +228,9 @@ class ScrapeUnblockerFetcher:
             params["steps"] = json.dumps(self.steps)
         if self.list_elements:
             params["list_elements"] = True
+        if self.markdown:
+            params["markdown"] = True
+            params["main_content_only"] = self.main_content_only
 
         response = requests.post(
             f"{self.base_url}/getPageSource",
@@ -241,7 +276,8 @@ class ScrapeUnblockerFetcher:
         Document; with `raise_on_failure` it raises `TargetNotFoundError`. With
         `parsed_data`, a page holding no structured data still yields a
         Document: its JSON carries `data_extracted: false` and the rendered
-        `html`, and `meta["data_extracted"]` is False.
+        `html`, and `meta["data_extracted"]` is False. With `markdown`, the
+        Document's content is the page as Markdown and `meta["markdown"]` is True.
 
         :param urls: URLs to fetch.
         :returns: A dictionary with a `documents` key holding the fetched pages.
@@ -273,7 +309,10 @@ class ScrapeUnblockerFetcher:
                 "content_type": response.headers.get("Content-Type", ""),
                 "parsed_data": self.parsed_data,
                 "list_elements": self.list_elements,
+                "markdown": self.markdown,
             }
+            if self.markdown:
+                meta["main_content_only"] = self.main_content_only
 
             if json_mode:
                 try:

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+- `ScrapeUnblockerFetcher` can return pages as clean Markdown for LLMs and RAG.
+  With `markdown=True` each Document's content is the page as Markdown
+  (headings, lists, GitHub-flavored tables, absolute links, images with alt
+  text, fenced code; no scripts, styles, navigation, footers or forms), ready
+  for a prompt or a splitter without an HTML converter. `main_content_only`
+  (default `True`) keeps only the main content; `False` converts the whole
+  page. `meta["markdown"]` is `True` for these Documents (`False` otherwise)
+  and `meta["main_content_only"]` records the setting. Billed like an HTML
+  fetch. `markdown` cannot be combined with `parsed_data` or `list_elements`
+  (the API refuses it), so that raises `ValueError`. Defaults are unchanged.
+- README: the pipeline example fetches Markdown and passes it straight to the
+  prompt. The previous example connected the fetcher's Documents to
+  `HTMLToDocument`, which only accepts sources, so the pipeline did not build.
+
 ## 0.3.0
 
 - With `parsed_data=True`, a page that loads but holds no structured data is

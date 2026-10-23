@@ -345,3 +345,143 @@ class TestNoDataExtracted:
         fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, parsed_data=True)
 
         assert fetcher.run(urls=["https://example.com/gone"])["documents"] == []
+
+
+class TestMarkdown:
+    MARKDOWN = "# A Light in the Attic\n\n£51.77\n\n| UPC | a897fe39b1053632 |\n"
+
+    def _markdown(self, text: str = MARKDOWN, status_code: int = 200, origin=None) -> MagicMock:
+        response = _response(text=text, status_code=status_code)
+        response.headers = {"Content-Type": "text/markdown; charset=utf-8"}
+        if origin is not None:
+            response.headers["X-Origin-Status"] = origin
+        return response
+
+    def test_off_by_default(self):
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY)
+        assert fetcher.markdown is False
+        assert fetcher.main_content_only is True
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_markdown_query(self, mock_post):
+        mock_post.return_value = self._markdown()
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True)
+
+        fetcher.run(urls=["https://example.com"])
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"] == {
+            "url": "https://example.com",
+            "markdown": True,
+            "main_content_only": True,
+        }
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_whole_page(self, mock_post):
+        mock_post.return_value = self._markdown()
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True, main_content_only=False)
+
+        fetcher.run(urls=["https://example.com"])
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"]["main_content_only"] is False
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_main_content_only_not_sent_without_markdown(self, mock_post):
+        mock_post.return_value = _response()
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, main_content_only=False)
+
+        fetcher.run(urls=["https://example.com"])
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"] == {"url": "https://example.com"}
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_markdown_document(self, mock_post):
+        mock_post.return_value = self._markdown()
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True, proxy_country="gb")
+
+        doc = fetcher.run(urls=["https://example.com/book"])["documents"][0]
+
+        assert doc.content == self.MARKDOWN
+        assert doc.meta["url"] == "https://example.com/book"
+        assert doc.meta["markdown"] is True
+        assert doc.meta["main_content_only"] is True
+        assert doc.meta["content_type"].startswith("text/markdown")
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"]["proxy_country"] == "gb"
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_markdown_that_looks_like_json_stays_text(self, mock_post):
+        mock_post.return_value = self._markdown(text='{"a": 1}')
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True)
+
+        assert fetcher.run(urls=["https://example.com"])["documents"][0].content == '{"a": 1}'
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_html_document_meta_says_not_markdown(self, mock_post):
+        mock_post.return_value = _response()
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY)
+
+        doc = fetcher.run(urls=["https://example.com"])["documents"][0]
+
+        assert doc.meta["markdown"] is False
+        assert "main_content_only" not in doc.meta
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_markdown_with_steps(self, mock_post):
+        mock_post.return_value = self._markdown()
+        steps = [{"action": "click", "selector": "#more"}]
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True, steps=steps)
+
+        fetcher.run(urls=["https://example.com"])
+
+        _, kwargs = mock_post.call_args
+        assert json.loads(kwargs["params"]["steps"]) == steps
+        assert kwargs["params"]["markdown"] is True
+
+    @pytest.mark.parametrize("other", [{"parsed_data": True}, {"list_elements": True}])
+    def test_rejects_json_formats(self, other):
+        with pytest.raises(ValueError, match="cannot be combined"):
+            ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True, **other)
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_missing_page_is_skipped(self, mock_post):
+        mock_post.side_effect = [
+            self._markdown(text="# 404 Not Found", status_code=404, origin="404"),
+            self._markdown(),
+        ]
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True)
+
+        result = fetcher.run(urls=["https://example.com/gone", "https://example.com"])
+
+        assert [d.meta["url"] for d in result["documents"]] == ["https://example.com"]
+
+    @patch("scrapeunblocker_haystack.fetcher.requests.post")
+    def test_missing_page_raises_with_markdown_body(self, mock_post):
+        mock_post.return_value = self._markdown(text="# 404 Not Found", status_code=404, origin="404")
+        fetcher = ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True, raise_on_failure=True)
+
+        with pytest.raises(TargetNotFoundError) as exc:
+            fetcher.run(urls=["https://example.com/gone"])
+        assert exc.value.origin_status == 404
+        assert exc.value.body == "# 404 Not Found"
+
+    def test_to_dict_and_back(self):
+        fetcher = ScrapeUnblockerFetcher(api_key=ENV_KEY, markdown=True, main_content_only=False)
+        data = fetcher.to_dict()
+        assert data["init_parameters"]["markdown"] is True
+        assert data["init_parameters"]["main_content_only"] is False
+
+        restored = ScrapeUnblockerFetcher.from_dict(data)
+        assert restored.markdown is True
+        assert restored.main_content_only is False
+
+    def test_from_dict_of_older_version(self):
+        data = ScrapeUnblockerFetcher(api_key=ENV_KEY).to_dict()
+        del data["init_parameters"]["markdown"]
+        del data["init_parameters"]["main_content_only"]
+
+        restored = ScrapeUnblockerFetcher.from_dict(data)
+        assert restored.markdown is False
+        assert restored.main_content_only is True

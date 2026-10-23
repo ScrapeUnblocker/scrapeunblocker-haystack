@@ -48,12 +48,44 @@ print(result["documents"][0].content[:200])
 | `time_sleep` | `None` | Seconds to wait after load before capturing |
 | `steps` | `None` | Browser actions to run before the HTML is captured (see below) |
 | `list_elements` | `False` | Return the parsed elements JSON instead of HTML (see below) |
+| `markdown` | `False` | Return the page as clean Markdown instead of HTML (see below) |
+| `main_content_only` | `True` | With `markdown`, keep only the main content (drop navigation, header, footer, sidebars) |
 | `base_url` | `https://api.scrapeunblocker.com` | API base URL |
 | `timeout` | `180` | HTTP timeout in seconds |
 | `raise_on_failure` | `False` | Raise instead of skipping a URL that fails |
 
 By default a URL that cannot be fetched is logged and skipped, so one bad URL
 does not discard the rest of the batch.
+
+#### Markdown for LLMs and RAG
+
+Set `markdown=True` to get each page as clean Markdown instead of HTML:
+headings, lists, tables (GitHub-flavored), absolute links, images with their
+alt text and fenced code blocks, without scripts, styles, navigation, footers,
+forms or hidden elements. The Markdown goes straight into a prompt or a
+splitter, with no HTML converter, and is usually a small fraction of the
+HTML's size. It is billed like an HTML fetch.
+
+```python
+from scrapeunblocker_haystack import ScrapeUnblockerFetcher
+
+fetcher = ScrapeUnblockerFetcher(markdown=True)
+result = fetcher.run(
+    urls=["https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"]
+)
+
+doc = result["documents"][0]
+print("# A Light in the Attic" in doc.content)  # True
+print(doc.meta["content_type"])                 # text/markdown; charset=utf-8
+```
+
+By default only the page's main content is kept: navigation, the site header,
+footer and sidebars are dropped. Pass `main_content_only=False` to convert the
+whole page. `markdown` works with `proxy_country`, `time_sleep` and `steps`,
+but not with `parsed_data` or `list_elements`, which return their own JSON
+formats; combining them raises `ValueError`. A page that does not exist
+(404/410) is skipped or raises `TargetNotFoundError`, as below, with the
+site's own page as Markdown in `body`.
 
 #### Browser steps
 
@@ -149,12 +181,11 @@ for doc in result["documents"]:
 
 ## In a pipeline
 
-Search the web, fetch the pages behind the results, and answer from them:
+Fetch pages as Markdown and answer a question from them:
 
 ```python
 from haystack import Pipeline
 from haystack.components.builders import ChatPromptBuilder
-from haystack.components.converters import HTMLToDocument
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage
 
@@ -169,13 +200,11 @@ prompt = [
 ]
 
 pipe = Pipeline()
-pipe.add_component("fetcher", ScrapeUnblockerFetcher())
-pipe.add_component("converter", HTMLToDocument())
+pipe.add_component("fetcher", ScrapeUnblockerFetcher(markdown=True))
 pipe.add_component("prompt_builder", ChatPromptBuilder(template=prompt, required_variables="*"))
 pipe.add_component("llm", OpenAIChatGenerator())
 
-pipe.connect("fetcher.documents", "converter.sources")
-pipe.connect("converter.documents", "prompt_builder.documents")
+pipe.connect("fetcher.documents", "prompt_builder.documents")
 pipe.connect("prompt_builder.prompt", "llm.messages")
 
 result = pipe.run(
