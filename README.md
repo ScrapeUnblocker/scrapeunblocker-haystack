@@ -44,7 +44,7 @@ print(result["documents"][0].content[:200])
 | --- | --- | --- |
 | `api_key` | `SCRAPEUNBLOCKER_API_KEY` env var | ScrapeUnblocker API key |
 | `parsed_data` | `False` | Return AI-parsed structured JSON instead of raw HTML |
-| `proxy_country` | `None` | Two-letter country code for the exit IP |
+| `proxy_country` | `None` | Two-letter country code of the country the request is made from |
 | `time_sleep` | `None` | Seconds to wait after load before capturing |
 | `steps` | `None` | Browser actions to run before the HTML is captured (see below) |
 | `list_elements` | `False` | Return the parsed elements JSON instead of HTML (see below) |
