@@ -211,7 +211,9 @@ class TestWebSearch:
         mock_post.return_value = _response(
             json_data={
                 "organic": [
-                    {"title": "First", "url": "https://a.com", "description": "snippet a", "position": "1"},
+                    {"title": "First", "url": "https://a.com", "description": "snippet a", "position": "1",
+                     "displayedUrl": "https://a.com › docs", "domain": "a.com", "source": "A",
+                     "date": "Oct 2, 2026"},
                     {"title": "Second", "url": "https://b.com", "description": "snippet b", "position": "2"},
                 ]
             }
@@ -225,6 +227,10 @@ class TestWebSearch:
         assert result["documents"][0].meta["title"] == "First"
         assert result["documents"][0].meta["link"] == "https://a.com"
         assert result["documents"][0].meta["query"] == "test query"
+        assert result["documents"][0].meta["domain"] == "a.com"
+        assert result["documents"][0].meta["source"] == "A"
+        assert result["documents"][0].meta["date"] == "Oct 2, 2026"
+        assert result["documents"][1].meta["date"] is None
 
         _, kwargs = mock_post.call_args
         assert kwargs["params"]["keyword"] == "test query"

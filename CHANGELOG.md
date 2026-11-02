@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+- `ScrapeUnblockerWebSearch` adds `displayed_url`, `domain`, `source` (the
+  site's name) and `date` to each Document's metadata. The API now returns
+  every organic result with its real URL, also those Google shows without a
+  snippet; such a Document's content is the result's title.
+
 ## 0.4.0
 
 - `ScrapeUnblockerFetcher` can return pages as clean Markdown for LLMs and RAG.

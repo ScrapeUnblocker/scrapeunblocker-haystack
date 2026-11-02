@@ -17,8 +17,9 @@ class ScrapeUnblockerWebSearch:
     """
     Searches Google through the ScrapeUnblocker API and returns the organic results.
 
-    Each result becomes a Document whose content is the snippet, with the title,
-    link and position in the metadata.
+    Each result becomes a Document whose content is the snippet (the title when
+    Google shows none), with the title, link, position, displayed URL, domain,
+    site name and date in the metadata.
 
     ### Usage example
 
@@ -107,6 +108,10 @@ class ScrapeUnblockerWebSearch:
                     "title": result.get("title"),
                     "link": result.get("url"),
                     "position": result.get("position"),
+                    "displayed_url": result.get("displayedUrl"),
+                    "domain": result.get("domain"),
+                    "source": result.get("source"),
+                    "date": result.get("date"),
                     "query": query,
                 },
             )
