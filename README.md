@@ -161,7 +161,8 @@ print(doc.content)                # {"url": ..., "count": ..., "elements": [...]
 
 Searches Google and returns the organic results as `Document` objects, with the
 snippet as content and `title` / `link` / `position` / `displayed_url` / `domain` /
-`source` (the site's name) / `date` in the metadata.
+`source` (the site's name) / `date` / `sitelinks` / `rating` / `rich_snippet` (the
+facts line under the snippet) in the metadata.
 
 ```python
 from scrapeunblocker_haystack import ScrapeUnblockerWebSearch

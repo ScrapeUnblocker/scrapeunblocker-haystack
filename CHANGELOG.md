@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- `ScrapeUnblockerWebSearch` adds `sitelinks` (the extra links under a result:
+  `title`, `url`, `description`), `rating` (`value`, `max`, `reviews`, `url`)
+  and `rich_snippet` (the facts line under the snippet) to each Document's
+  metadata, from the new `/serpApi` fields.
+
 ## 0.4.1
 
 - `ScrapeUnblockerWebSearch` adds `displayed_url`, `domain`, `source` (the

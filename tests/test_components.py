@@ -213,7 +213,10 @@ class TestWebSearch:
                 "organic": [
                     {"title": "First", "url": "https://a.com", "description": "snippet a", "position": "1",
                      "displayedUrl": "https://a.com › docs", "domain": "a.com", "source": "A",
-                     "date": "Oct 2, 2026"},
+                     "date": "Oct 2, 2026",
+                     "sitelinks": [{"title": "Docs", "url": "https://a.com/docs", "description": None}],
+                     "rating": {"value": 4.5, "max": 5.0, "reviews": 120, "url": None},
+                     "richSnippet": "4.5 (120) · Free"},
                     {"title": "Second", "url": "https://b.com", "description": "snippet b", "position": "2"},
                 ]
             }
@@ -231,6 +234,11 @@ class TestWebSearch:
         assert result["documents"][0].meta["source"] == "A"
         assert result["documents"][0].meta["date"] == "Oct 2, 2026"
         assert result["documents"][1].meta["date"] is None
+        assert result["documents"][0].meta["sitelinks"][0]["url"] == "https://a.com/docs"
+        assert result["documents"][0].meta["rating"]["value"] == 4.5
+        assert result["documents"][0].meta["rich_snippet"] == "4.5 (120) · Free"
+        assert result["documents"][1].meta["sitelinks"] == []
+        assert result["documents"][1].meta["rating"] is None
 
         _, kwargs = mock_post.call_args
         assert kwargs["params"]["keyword"] == "test query"

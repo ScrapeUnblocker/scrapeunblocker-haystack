@@ -19,7 +19,7 @@ class ScrapeUnblockerWebSearch:
 
     Each result becomes a Document whose content is the snippet (the title when
     Google shows none), with the title, link, position, displayed URL, domain,
-    site name and date in the metadata.
+    site name, date, sitelinks, star rating and facts line in the metadata.
 
     ### Usage example
 
@@ -112,6 +112,9 @@ class ScrapeUnblockerWebSearch:
                     "domain": result.get("domain"),
                     "source": result.get("source"),
                     "date": result.get("date"),
+                    "sitelinks": result.get("sitelinks") or [],
+                    "rating": result.get("rating"),
+                    "rich_snippet": result.get("richSnippet"),
                     "query": query,
                 },
             )
