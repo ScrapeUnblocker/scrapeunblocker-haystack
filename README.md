@@ -180,6 +180,24 @@ for doc in result["documents"]:
 | `pages_to_check` | `1` | How many result pages to scrape |
 | `proxy_country` | `None` | Two-letter country code for localised results |
 | `top_k` | `None` | Keep at most this many results |
+| `full_urls` | `False` | Wait until Google gives out every result's real URL (see below) |
+| `base_url` | `https://api.scrapeunblocker.com` | API base URL |
+| `timeout` | `180` | HTTP timeout in seconds |
+
+#### Every result's real URL
+
+Google releases a results page's links a few at a time, the last ones up to
+about 40 seconds after the search. By default the search returns sooner, so
+most results carry their real URL in `meta["link"]`, and a result whose link
+has not come yet has the site's home page there (or a Google redirect link when
+Google shows no site). Set `full_urls=True` when you need the exact page of
+every result, for example to fetch or cite them:
+
+```python
+search = ScrapeUnblockerWebSearch(full_urls=True)
+```
+
+The call then takes up to about 40 seconds longer. It is billed the same.
 
 ## In a pipeline
 

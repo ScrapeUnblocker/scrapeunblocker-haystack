@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+- `ScrapeUnblockerWebSearch` takes `full_urls` (default `False`): wait until
+  Google gives out every result's real URL. Google releases a results page's
+  links a few at a time, the last ones up to about 40 seconds after the search.
+  Without the flag the call returns sooner, and a result whose link has not
+  come yet has the site's home page as its `link` (or a Google redirect link
+  when Google shows no site). With it, the call takes up to about 40 seconds
+  longer. Billed the same. Sent to `/serpApi` only when `True`, and saved with
+  the component in `to_dict()`.
+
 ## 0.4.2
 
 - `ScrapeUnblockerWebSearch` adds `sitelinks` (the extra links under a result:

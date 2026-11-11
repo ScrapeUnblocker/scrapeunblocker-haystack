@@ -259,12 +259,42 @@ class TestWebSearch:
 
         assert search.run(query="q")["documents"] == []
 
+    @patch("scrapeunblocker_haystack.search.requests.post")
+    def test_full_urls_off_by_default(self, mock_post):
+        mock_post.return_value = _response(json_data={"organic": []})
+        search = ScrapeUnblockerWebSearch(api_key=API_KEY)
+        assert search.full_urls is False
+
+        search.run(query="q")
+
+        _, kwargs = mock_post.call_args
+        assert "full_urls" not in kwargs["params"]
+
+    @patch("scrapeunblocker_haystack.search.requests.post")
+    def test_full_urls_sent_when_on(self, mock_post):
+        mock_post.return_value = _response(json_data={"organic": []})
+        search = ScrapeUnblockerWebSearch(api_key=API_KEY, full_urls=True)
+
+        search.run(query="q")
+
+        _, kwargs = mock_post.call_args
+        assert kwargs["params"]["full_urls"] == "true"
+
     def test_to_dict_and_back(self):
-        search = ScrapeUnblockerWebSearch(api_key=ENV_KEY, top_k=5, proxy_country="us")
+        search = ScrapeUnblockerWebSearch(api_key=ENV_KEY, top_k=5, proxy_country="us", full_urls=True)
         data = search.to_dict()
+        assert data["init_parameters"]["full_urls"] is True
         restored = ScrapeUnblockerWebSearch.from_dict(data)
         assert restored.top_k == 5
         assert restored.proxy_country == "us"
+        assert restored.full_urls is True
+
+    def test_from_dict_of_older_version(self):
+        data = ScrapeUnblockerWebSearch(api_key=ENV_KEY).to_dict()
+        del data["init_parameters"]["full_urls"]
+
+        restored = ScrapeUnblockerWebSearch.from_dict(data)
+        assert restored.full_urls is False
 
 
 class TestTargetNotFound:

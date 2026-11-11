@@ -41,6 +41,7 @@ class ScrapeUnblockerWebSearch:
         top_k: Optional[int] = None,
         base_url: str = DEFAULT_BASE_URL,
         timeout: int = DEFAULT_TIMEOUT,
+        full_urls: bool = False,
     ) -> None:
         """
         :param api_key: ScrapeUnblocker API key. Read from `SCRAPEUNBLOCKER_API_KEY` by default.
@@ -49,6 +50,11 @@ class ScrapeUnblockerWebSearch:
         :param top_k: Keep at most this many results. `None` keeps all of them.
         :param base_url: API base URL. Override to target a different environment.
         :param timeout: HTTP timeout in seconds.
+        :param full_urls: Wait until Google gives out every result's real URL. Google releases a
+            results page's links a few at a time, the last ones up to about 40 seconds after the
+            search. Without this flag the call returns sooner, and a result whose link has not come
+            yet has the site's home page as its `link` (or a Google redirect link when Google shows
+            no site). With it, the call takes up to about 40 seconds longer. Billed the same.
         """
         self.api_key = api_key
         self.pages_to_check = pages_to_check
@@ -56,6 +62,7 @@ class ScrapeUnblockerWebSearch:
         self.top_k = top_k
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.full_urls = full_urls
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize this component to a dictionary."""
@@ -67,6 +74,7 @@ class ScrapeUnblockerWebSearch:
             top_k=self.top_k,
             base_url=self.base_url,
             timeout=self.timeout,
+            full_urls=self.full_urls,
         )
 
     @classmethod
@@ -86,6 +94,8 @@ class ScrapeUnblockerWebSearch:
         params: Dict[str, Any] = {"keyword": query, "pages_to_check": self.pages_to_check}
         if self.proxy_country:
             params["proxy_country"] = self.proxy_country
+        if self.full_urls:
+            params["full_urls"] = "true"
 
         response = requests.post(
             f"{self.base_url}/serpApi",
