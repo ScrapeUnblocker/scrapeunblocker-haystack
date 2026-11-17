@@ -162,6 +162,7 @@ class ScrapeUnblockerFetcher:
             non-idempotent. Sent JSON-encoded in the `steps` query parameter.
         :param list_elements: Return the parsed elements JSON
             (`{url, count, elements: [...]}`) instead of the page HTML.
+            Cannot be combined with `parsed_data`.
         :param base_url: API base URL. Override to target a different environment.
         :param timeout: HTTP timeout in seconds.
         :param raise_on_failure: Raise instead of skipping when a URL cannot be fetched
@@ -173,12 +174,18 @@ class ScrapeUnblockerFetcher:
         :param main_content_only: With `markdown`, keep only the page's main content and
             drop navigation, the site header, footer and sidebars. `False` converts the
             whole page. Ignored without `markdown`.
-        :raises ValueError: If `markdown` is combined with `parsed_data` or `list_elements`.
+        :raises ValueError: If `markdown` is combined with `parsed_data` or `list_elements`,
+            or `list_elements` with `parsed_data`.
         """
+        # The API refuses these combinations (HTTP 422): each returns its own format.
         if markdown and (parsed_data or list_elements):
-            # The API refuses these combinations (HTTP 422): each returns its own format.
             raise ValueError(
                 "markdown=True cannot be combined with parsed_data or list_elements: "
+                "each returns its own format."
+            )
+        if list_elements and parsed_data:
+            raise ValueError(
+                "list_elements=True cannot be combined with parsed_data: "
                 "each returns its own format."
             )
         self.api_key = api_key

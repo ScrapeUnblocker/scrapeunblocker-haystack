@@ -146,7 +146,9 @@ result.
 
 Set `list_elements=True` to return the parsed elements JSON
 (`{url, count, elements: [...]}`) instead of the page HTML. The JSON is stored
-as the Document content, and the element count is available in `meta["count"]`:
+as the Document content, and the element count is available in `meta["count"]`.
+It cannot be combined with `parsed_data` (each returns its own JSON format;
+combining them raises `ValueError`):
 
 ```python
 fetcher = ScrapeUnblockerFetcher(list_elements=True)

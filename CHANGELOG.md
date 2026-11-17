@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- `ScrapeUnblockerFetcher(list_elements=True, parsed_data=True)` raises
+  `ValueError`. The API now answers 422 for this pair, since each returns its
+  own format; before, it returned the elements JSON and ignored `parsed_data`.
+
 ## 0.5.0
 
 - `ScrapeUnblockerWebSearch` takes `full_urls` (default `False`): wait until

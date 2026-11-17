@@ -489,6 +489,10 @@ class TestMarkdown:
         with pytest.raises(ValueError, match="cannot be combined"):
             ScrapeUnblockerFetcher(api_key=API_KEY, markdown=True, **other)
 
+    def test_rejects_list_elements_with_parsed_data(self):
+        with pytest.raises(ValueError, match="list_elements=True cannot be combined"):
+            ScrapeUnblockerFetcher(api_key=API_KEY, list_elements=True, parsed_data=True)
+
     @patch("scrapeunblocker_haystack.fetcher.requests.post")
     def test_missing_page_is_skipped(self, mock_post):
         mock_post.side_effect = [
